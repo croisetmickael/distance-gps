@@ -56,7 +56,12 @@ export function createGeocoder(
     const data = (await response.json()) as NominatimResult[];
     if (!Array.isArray(data)) return [];
     return data
-      .map((r) => ({ lat: Number(r.lat), lng: Number(r.lon), label: r.display_name }))
+      .map((r): NamedPoint => ({
+        lat: Number(r.lat),
+        lng: Number(r.lon),
+        label: r.display_name,
+        source: "recherche",
+      }))
       .filter((p) => isValidLatLng(p) && typeof p.label === "string");
   };
 }

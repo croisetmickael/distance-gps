@@ -17,7 +17,9 @@ describe("createGeocoder", () => {
     expect(url.searchParams.get("q")).toBe("Paris");
     expect(url.searchParams.get("format")).toBe("jsonv2");
     expect(url.searchParams.get("limit")).toBe("5");
-    expect(results).toEqual([{ lat: 48.8566, lng: 2.3522, label: "Paris, France" }]);
+    expect(results).toEqual([
+      { lat: 48.8566, lng: 2.3522, label: "Paris, France", source: "recherche" },
+    ]);
   });
 
   it("ignore les résultats aux coordonnées invalides", async () => {

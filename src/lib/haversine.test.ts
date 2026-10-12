@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { EARTH_RADIUS_M, formatDistance, haversineDistance } from "./haversine";
+import { EARTH_RADIUS_M, formatDistance, formatUncertainty, haversineDistance } from "./haversine";
 
 const paris = { lat: 48.8566, lng: 2.3522 };
 const londres = { lat: 51.5074, lng: -0.1278 };
@@ -46,20 +46,34 @@ describe("haversineDistance", () => {
 });
 
 describe("formatDistance", () => {
-  it("affiche les mètres sous 1 km", () => {
-    expect(formatDistance(0)).toEqual({ value: "0", unit: "m" });
-    expect(formatDistance(999.4)).toEqual({ value: "999", unit: "m" });
+  const norm = (s: string) => s.replace(/[\u202f\u00a0]/g, " ");
+
+  it("affiche les mètres entiers sous 1 km", () => {
+    expect(formatDistance(0)).toEqual({ value: "0", unit: "m", meters: "0 m" });
+    expect(formatDistance(999.4).value).toBe("999");
   });
 
-  it("affiche les kilomètres avec une précision adaptée", () => {
-    const nbsp = /[\u202f\u00a0 ]/g;
-    expect(formatDistance(1234)).toEqual({ value: "1,23", unit: "km" });
-    expect(formatDistance(45_678)).toEqual({ value: "45,7", unit: "km" });
-    expect(formatDistance(5_837_000).value.replace(nbsp, " ")).toBe("5 837");
+  it("affiche les kilomètres au mètre près (3 décimales)", () => {
+    const d = formatDistance(1234.4);
+    expect(d).toMatchObject({ value: "1,234", unit: "km" });
+    expect(norm(d.meters)).toBe("1 234 m");
+    expect(formatDistance(999.6)).toMatchObject({ value: "1,000", unit: "km" });
+    const far = formatDistance(115_431.7);
+    expect(norm(far.value)).toBe("115,432");
+    expect(norm(far.meters)).toBe("115 432 m");
   });
 
   it("refuse les valeurs invalides", () => {
     expect(() => formatDistance(-1)).toThrow(RangeError);
     expect(() => formatDistance(Number.NaN)).toThrow(RangeError);
+  });
+});
+
+describe("formatUncertainty", () => {
+  it("arrondit au demi-mètre sous 10 m, au mètre au-delà", () => {
+    expect(formatUncertainty(0)).toBe("0,5 m");
+    expect(formatUncertainty(0.74)).toBe("0,5 m");
+    expect(formatUncertainty(3.3)).toBe("3,5 m");
+    expect(formatUncertainty(12.4)).toBe("12 m");
   });
 });

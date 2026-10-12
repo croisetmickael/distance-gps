@@ -23,7 +23,7 @@ export default function SearchBox({ onSelect }: Props) {
 
     const coords = parseCoordinates(query);
     if (coords) {
-      onSelect({ ...coords, label: formatLatLng(coords) });
+      onSelect({ ...coords, label: formatLatLng(coords), source: "saisie" });
       return;
     }
 

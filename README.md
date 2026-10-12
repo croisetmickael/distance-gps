@@ -8,12 +8,27 @@ Gratuite, sans compte, sans clé API : la carte vient d'OpenStreetMap et la rech
 
 ## Fonctionnalités
 
-- **Point A** : géolocalisation de l'appareil, avec affichage de la précision (cercle sur la carte et valeur en mètres).
+- **Distance au mètre près**, calculée sur l'ellipsoïde WGS84 avec l'algorithme de Karney (GeographicLib), exact à quelques nanomètres. Au-delà de 1 km, l'affichage reste au mètre (`1,234 km`, soit `1 234 m`).
+- **Incertitude affichée** à côté de chaque mesure (± X m), calculée à partir de la précision GPS et de la finesse du placement sur la carte.
+- **Point A** : géolocalisation affinée. L'application cumule les mesures pendant 30 s maximum, s'arrête dès ±3 m, et propose « Valider » pour arrêter plus tôt. On peut aussi placer A à la main sur la carte.
 - **Point B** : toucher la carte, rechercher une adresse, ou saisir des coordonnées décimales (`48.8584, 2.2945` ou `48,8584 ; 2,2945`).
-- Les deux marqueurs se déplacent par glisser-déposer ; la distance se met à jour aussitôt.
-- **Distance** calculée avec la formule de Haversine (rayon terrestre moyen 6 371 008,8 m), affichée en mètres sous 1 km, puis en kilomètres.
-- Interface responsive (carte au-dessus et panneau en bas sur mobile, panneau latéral sur ordinateur), thème sombre automatique, navigation au clavier.
-- Messages d'erreur explicites : permission refusée, position indisponible, absence de HTTPS, limite de requêtes Nominatim.
+- **Mode Satellite** : photos aériennes IGN (20 cm par pixel en France), zoom jusqu'au niveau 21 pour placer les points finement. Le fond choisi est mémorisé.
+- Marqueurs déplaçables par glisser-déposer, interface responsive, thème sombre automatique, navigation au clavier.
+
+## Précision : ce qu'il faut savoir
+
+L'affichage au mètre ne garantit pas une mesure exacte au mètre. La précision réelle dépend de la façon dont les points sont placés :
+
+| Méthode de placement | Précision typique |
+| --- | --- |
+| Coordonnées saisies | Exactes (la seule erreur vient du calcul, négligeable) |
+| Placement sur photo aérienne IGN, zoom maximal | Environ 0,5 à 1 m (précision de l'orthophoto et du pointage) |
+| GPS de smartphone, à découvert, après affinage | 2 à 5 m ; 5 à 15 m en ville ou sous les arbres |
+| Adresse trouvée par recherche | Inconnue : centre de l'adresse ou du bâtiment |
+
+**Pour mesurer au mètre** : passez en mode Satellite, zoomez au maximum, choisissez « A » dans « Toucher la carte place », touchez le point de départ, puis touchez le point d'arrivée. Une précision de 1 m avec un vrai positionnement GPS exige un récepteur GNSS RTK ; un téléphone ne l'atteint pas.
+
+Pourquoi pas la formule de Haversine ? Elle suppose une Terre parfaitement sphérique. À Abbeville, elle se trompe d'environ 3 m sur 1 km et de 87 m entre Abbeville et Amiens. Elle reste dans le code (`haversine.ts`) comme contrôle croisé, mais n'est plus utilisée pour l'affichage.
 
 ## Technologies
 
@@ -21,7 +36,8 @@ Gratuite, sans compte, sans clé API : la carte vient d'OpenStreetMap et la rech
 | --- | --- |
 | Interface | React 18 + TypeScript |
 | Outil de build | Vite 6 |
-| Carte | Leaflet 1.9 + React Leaflet 4, tuiles OpenStreetMap |
+| Carte | Leaflet 1.9 + React Leaflet 4, tuiles OpenStreetMap et photos aériennes IGN |
+| Calcul de distance | GeographicLib (Karney, ellipsoïde WGS84) |
 | Géocodage | API publique Nominatim |
 | Tests | Vitest 4 |
 | Hébergement | Vercel (site statique) |
@@ -64,10 +80,11 @@ src/
 │   ├── MapView.tsx          Carte Leaflet, marqueurs, tracé, recadrage
 │   └── SearchBox.tsx        Recherche du point B (adresse ou coordonnées)
 ├── lib/
-│   ├── haversine.ts         Formule de Haversine et formatage de la distance
+│   ├── geodesic.ts          Distance géodésique WGS84, incertitude, finesse de placement
+│   ├── haversine.ts         Formule de Haversine (contrôle) et formatage au mètre
 │   ├── coordinates.ts       Validation et saisie de coordonnées
 │   ├── nominatim.ts         Client Nominatim (1 requête/s maximum)
-│   ├── geolocation.ts       Géolocalisation et messages d'erreur
+│   ├── geolocation.ts       Géolocalisation affinée (moyenne pondérée) et erreurs
 │   └── *.test.ts            Tests unitaires
 ├── config.ts                Fournisseurs de tuiles et de géocodage
 └── styles.css
@@ -95,6 +112,9 @@ Une fois le dépôt GitHub importé dans Vercel, chaque push sur `main` déclenc
 | --- | --- |
 | `VITE_TILE_URL` | `https://tile.openstreetmap.org/{z}/{x}/{y}.png` |
 | `VITE_TILE_ATTRIBUTION` | Mention « Contributeurs OpenStreetMap » |
+| `VITE_SATELLITE_URL` | Photos aériennes IGN (Géoplateforme, France) |
+| `VITE_SATELLITE_ATTRIBUTION` | Mention « IGN – Géoplateforme » |
+| `VITE_SATELLITE_MAX_NATIVE_ZOOM` | `19` |
 | `VITE_NOMINATIM_URL` | `https://nominatim.openstreetmap.org` |
 
 Les variables `VITE_*` sont intégrées au code envoyé au navigateur : n'y placez jamais de secret. Sur Vercel, elles se définissent dans *Settings → Environment Variables* et prennent effet au déploiement suivant.
@@ -112,7 +132,7 @@ git push origin main     # Vercel redéploie automatiquement
 
 Pour les dépendances : `npm outdated`, puis `npm install <paquet>@<version>`, `npm audit`, et relancer la vérification complète.
 
-## Limites des services publics OpenStreetMap et Nominatim
+## Limites des services publics (OpenStreetMap, Nominatim, IGN)
 
 Ces services sont gratuits et financés par des dons. Leurs règles d'usage s'appliquent à toute personne qui déploie l'application.
 
@@ -128,7 +148,12 @@ Ces services sont gratuits et financés par des dons. Leurs règles d'usage s'ap
 - l'application doit être identifiable : le navigateur transmet l'en-tête `Referer` du site ;
 - au-delà d'un usage léger, utilisez une instance auto-hébergée ou un service commercial via `VITE_NOMINATIM_URL`.
 
-**Précision** : la distance affichée est orthodromique (vol d'oiseau, Terre sphérique). L'écart avec l'ellipsoïde WGS84 reste inférieur à 0,5 %. Ce n'est pas une distance d'itinéraire routier. La précision du point A dépend de l'appareil (GPS, Wi-Fi, réseau mobile).
+**Photos aériennes IGN** ([Géoplateforme](https://geoservices.ign.fr/)) :
+- service public, gratuit et sans clé ; la mention « IGN – Géoplateforme » doit rester visible ;
+- couverture limitée à la France (métropole et outre-mer) : ailleurs, le fond Satellite reste vide ;
+- pour une couverture mondiale, branchez un autre fournisseur via `VITE_SATELLITE_URL`, en respectant ses conditions. L'imagerie Esri World Imagery, fréquente dans les exemples Leaflet, demande en principe un compte ArcGIS pour un usage hors des outils Esri.
+
+La distance affichée est à vol d'oiseau, pas un itinéraire routier.
 
 ## Confidentialité
 

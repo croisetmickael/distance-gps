@@ -12,6 +12,8 @@ import {
 import type { LatLng, NamedPoint } from "../lib/types";
 import { config } from "../config";
 
+export type BaseLayer = "plan" | "satellite";
+
 // Marqueurs en HTML/CSS : évite le bug classique des icônes Leaflet
 // introuvables une fois le projet compilé par Vite.
 const makeIcon = (letter: "A" | "B") =>
@@ -24,17 +26,23 @@ const makeIcon = (letter: "A" | "B") =>
 
 const FRANCE_CENTER: [number, number] = [46.6, 2.4];
 
+/** Position et zoom au moment de l'action, pour estimer la finesse du placement. */
+export type PlaceHandler = (p: LatLng, zoom: number) => void;
+
 interface Props {
   a: NamedPoint | null;
   b: NamedPoint | null;
   fitKey: number;
-  onMapClick: (p: LatLng) => void;
-  onDragA: (p: LatLng) => void;
-  onDragB: (p: LatLng) => void;
+  baseLayer: BaseLayer;
+  onMapClick: PlaceHandler;
+  onDragA: PlaceHandler;
+  onDragB: PlaceHandler;
 }
 
-function ClickHandler({ onMapClick }: { onMapClick: Props["onMapClick"] }) {
-  useMapEvents({ click: (e) => onMapClick({ lat: e.latlng.lat, lng: e.latlng.lng }) });
+function ClickHandler({ onMapClick }: { onMapClick: PlaceHandler }) {
+  const map = useMapEvents({
+    click: (e) => onMapClick({ lat: e.latlng.lat, lng: e.latlng.lng }, map.getZoom()),
+  });
   return null;
 }
 
@@ -46,13 +54,13 @@ function FitView({ a, b, fitKey }: Pick<Props, "a" | "b" | "fitKey">) {
     if (a && b) {
       map.fitBounds(L.latLngBounds([a.lat, a.lng], [b.lat, b.lng]), {
         padding: [56, 56],
-        maxZoom: 16,
+        maxZoom: 18,
       });
     } else {
       const p = a ?? b;
-      if (p) map.setView([p.lat, p.lng], Math.max(map.getZoom(), 14));
+      if (p) map.setView([p.lat, p.lng], Math.max(map.getZoom(), 17));
     }
-    // Volontairement limité à fitKey : on ne recadre pas pendant un glisser-déposer.
+    // Volontairement limité à fitKey : pas de recadrage pendant un glisser-déposer.
   }, [fitKey]);
   return null;
 }
@@ -68,66 +76,83 @@ function AutoResize() {
   return null;
 }
 
-export default function MapView({ a, b, fitKey, onMapClick, onDragA, onDragB }: Props) {
+function DraggablePin({
+  point,
+  icon,
+  title,
+  onDrag,
+}: {
+  point: NamedPoint;
+  icon: L.DivIcon;
+  title: string;
+  onDrag: PlaceHandler;
+}) {
+  const map = useMap();
+  return (
+    <Marker
+      position={[point.lat, point.lng]}
+      icon={icon}
+      draggable
+      title={title}
+      alt={title}
+      eventHandlers={{
+        dragend: (e) => {
+          const ll = (e.target as L.Marker).getLatLng();
+          onDrag({ lat: ll.lat, lng: ll.lng }, map.getZoom());
+        },
+      }}
+    />
+  );
+}
+
+export default function MapView({ a, b, fitKey, baseLayer, onMapClick, onDragA, onDragB }: Props) {
   const iconA = useMemo(() => makeIcon("A"), []);
   const iconB = useMemo(() => makeIcon("B"), []);
-
-  const dragHandlers = (cb: (p: LatLng) => void) => ({
-    dragend: (e: L.LeafletEvent) => {
-      const ll = (e.target as L.Marker).getLatLng();
-      cb({ lat: ll.lat, lng: ll.lng });
-    },
-  });
+  const tiles = config[baseLayer];
 
   return (
     <MapContainer
       center={FRANCE_CENTER}
       zoom={6}
-      className="map"
+      maxZoom={config.maxZoom}
+      className={`map map-${baseLayer}`}
       worldCopyJump
-      attributionControl
     >
-      <TileLayer url={config.tileUrl} attribution={config.tileAttribution} maxZoom={19} />
+      <TileLayer
+        key={baseLayer}
+        url={tiles.url}
+        attribution={tiles.attribution}
+        maxNativeZoom={tiles.maxNativeZoom}
+        maxZoom={config.maxZoom}
+      />
       <ClickHandler onMapClick={onMapClick} />
       <FitView a={a} b={b} fitKey={fitKey} />
       <AutoResize />
 
-      {a?.accuracy && a.accuracy < 5000 && (
+      {a?.source === "gps" && a.accuracy !== undefined && a.accuracy < 5000 && (
         <Circle
           center={[a.lat, a.lng]}
           radius={a.accuracy}
-          pathOptions={{ color: "#2e6fc2", weight: 1, fillOpacity: 0.12 }}
+          pathOptions={{ color: "#2e6fc2", weight: 1, fillOpacity: 0.15 }}
         />
       )}
       {a && b && (
-        <Polyline
-          positions={[
-            [a.lat, a.lng],
-            [b.lat, b.lng],
-          ]}
-          pathOptions={{ color: "#1c2b36", weight: 3, dashArray: "8 8" }}
-        />
+        <>
+          {/* Liseré blanc sous le tracé : lisible sur le plan comme sur la photo */}
+          <Polyline
+            positions={[[a.lat, a.lng], [b.lat, b.lng]]}
+            pathOptions={{ color: "#ffffff", weight: 6, opacity: 0.85 }}
+            interactive={false}
+          />
+          <Polyline
+            positions={[[a.lat, a.lng], [b.lat, b.lng]]}
+            pathOptions={{ color: "#1c2b36", weight: 3, dashArray: "8 8" }}
+            interactive={false}
+          />
+        </>
       )}
-      {a && (
-        <Marker
-          position={[a.lat, a.lng]}
-          icon={iconA}
-          draggable
-          eventHandlers={dragHandlers(onDragA)}
-          title="Point A"
-          alt="Point A"
-        />
-      )}
-      {b && (
-        <Marker
-          position={[b.lat, b.lng]}
-          icon={iconB}
-          draggable
-          eventHandlers={dragHandlers(onDragB)}
-          title="Point B"
-          alt="Point B"
-        />
-      )}
+      {a && <DraggablePin point={a} icon={iconA} title="Point A" onDrag={onDragA} />}
+      {b && <DraggablePin point={b} icon={iconB} title="Point B" onDrag={onDragB} />}
     </MapContainer>
   );
 }

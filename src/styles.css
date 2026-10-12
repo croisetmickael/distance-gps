@@ -7,6 +7,7 @@
   --a: #2e6fc2;
   --b: #c2306a;
   --danger: #a3261f;
+  --warn: #8a5a00;
   --focus: #2e6fc2;
   --font-display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
   --font-body: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -23,6 +24,7 @@
     --a: #6aa2ea;
     --b: #ec6c9c;
     --danger: #ff8a80;
+    --warn: #f0b74a;
     --focus: #6aa2ea;
     color-scheme: dark;
   }
@@ -345,4 +347,92 @@ h2 {
   .leaflet-zoom-anim .leaflet-zoom-animated {
     transition: none !important;
   }
+}
+
+/* Incertitude de mesure */
+.uncertainty {
+  margin: 0.35rem 0 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.uncertainty.is-wide {
+  color: var(--warn);
+}
+
+/* Choix du point placé par un toucher sur la carte */
+.target {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9375rem;
+}
+
+.target span {
+  flex: 1;
+  color: var(--ink-soft);
+}
+
+.target button {
+  width: 44px;
+  min-height: 36px;
+  font: inherit;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.0625rem;
+  border-radius: 8px;
+  border: 2px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.target .target-a.is-active {
+  background: var(--a);
+  border-color: var(--a);
+  color: #fff;
+}
+
+.target .target-b.is-active {
+  background: var(--b);
+  border-color: var(--b);
+  color: #fff;
+}
+
+/* Sélecteur de fond de carte, posé sur la carte */
+.layer-switch {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 1000;
+  display: flex;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 5px rgb(0 0 0 / 0.35);
+}
+
+.layer-switch button {
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  min-height: 36px;
+  padding: 0.3rem 0.8rem;
+  border: 0;
+  background: #fff;
+  color: #1c2b36;
+  cursor: pointer;
+}
+
+.layer-switch button + button {
+  border-left: 1px solid #c9d1ce;
+}
+
+.layer-switch button.is-active {
+  background: #1c2b36;
+  color: #fff;
+}
+
+.map-satellite.leaflet-container {
+  background: #3a4248;
 }
