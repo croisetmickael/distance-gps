@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import MapView, { type BaseLayer, type PlaceHandler } from "./components/MapView";
+import DistanceResult from "./components/DistanceResult";
 import SearchBox from "./components/SearchBox";
+import TargetToggle, { type Target } from "./components/TargetToggle";
 import { config } from "./config";
 import { formatLatLng } from "./lib/coordinates";
-import { distanceUncertainty, geodesicDistance, placementAccuracy } from "./lib/geodesic";
+import { placementAccuracy } from "./lib/geodesic";
 import { watchRefinedPosition } from "./lib/geolocation";
-import { formatDistance, formatUncertainty } from "./lib/haversine";
+import { formatUncertainty } from "./lib/haversine";
 import type { NamedPoint } from "./lib/types";
-
-type Target = "A" | "B";
 
 const LAYER_KEY = "distance-gps:fond";
 
@@ -36,6 +36,47 @@ export default function App() {
   const [refining, setRefining] = useState<{ samples: number } | null>(null);
   const [geoError, setGeoError] = useState<string | null>(null);
   const stopWatch = useRef<(() => void) | null>(null);
+  const [fullscreen, setFullscreen] = useState(false);
+  const exitButton = useRef<HTMLButtonElement>(null);
+  const enterButton = useRef<HTMLButtonElement>(null);
+
+  // Plein écran : on masque le panneau ; quand le navigateur le permet, on masque aussi
+  // ses barres (API Fullscreen, absente sur iPhone : le mode reste alors interne à la page).
+  function enterFullscreen() {
+    setFullscreen(true);
+    const root = document.documentElement;
+    if (root.requestFullscreen && !document.fullscreenElement) {
+      root.requestFullscreen().catch(() => {
+        /* refus ou non pris en charge : le plein écran interne suffit */
+      });
+    }
+  }
+
+  function exitFullscreen() {
+    setFullscreen(false);
+    if (document.fullscreenElement && document.exitFullscreen) {
+      document.exitFullscreen().catch(() => {});
+    }
+  }
+
+  useEffect(() => {
+    if (!fullscreen) return;
+    exitButton.current?.focus({ preventScroll: true });
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") exitFullscreen();
+    };
+    // Sortie par la touche Échap ou le geste du navigateur : on revient à l'écran partagé.
+    const onChange = () => {
+      if (!document.fullscreenElement) setFullscreen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    document.addEventListener("fullscreenchange", onChange);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.removeEventListener("fullscreenchange", onChange);
+      enterButton.current?.focus({ preventScroll: true });
+    };
+  }, [fullscreen]);
 
   useEffect(() => {
     try {
@@ -93,12 +134,8 @@ export default function App() {
   }, []);
   const dragB = useCallback<PlaceHandler>((p, zoom) => setB(placed(p, zoom)), []);
 
-  const meters = a && b ? geodesicDistance(a, b) : null;
-  const distance = meters !== null ? formatDistance(meters) : null;
-  const uncertainty = a && b ? distanceUncertainty(a, b) : null;
-
   return (
-    <div className="app">
+    <div className={`app${fullscreen ? " is-fullscreen" : ""}`}>
       <main className="map-area" aria-label="Carte">
         <MapView
           a={a}
@@ -123,53 +160,53 @@ export default function App() {
             </button>
           ))}
         </div>
+
+        {fullscreen ? (
+          <section className="map-overlay" aria-live="polite" aria-label="Résultat de la mesure">
+            <div className="map-overlay-result">
+              <DistanceResult a={a} b={b} compact />
+              {refining && a && (
+                <p className="hint">Affinage GPS du point A : ± {formatUncertainty(a.accuracy ?? 0)}</p>
+              )}
+            </div>
+            <TargetToggle value={target} onChange={setTarget} />
+            <button ref={exitButton} type="button" className="btn btn-dark" onClick={exitFullscreen}>
+              Revenir à l'écran partagé
+            </button>
+          </section>
+        ) : (
+          <button
+            ref={enterButton}
+            type="button"
+            className="fullscreen-toggle"
+            onClick={enterFullscreen}
+            aria-label="Carte en plein écran"
+          >
+            <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true">
+              <path
+                d="M3 8V3h5M12 3h5v5M17 12v5h-5M8 17H3v-5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            <span>Plein écran</span>
+          </button>
+        )}
       </main>
 
-      <aside className="panel">
+      <aside className="panel" hidden={fullscreen}>
         <header className="panel-head">
           <h1>Distance GPS</h1>
         </header>
 
         <section className="result" aria-live="polite">
-          {distance && uncertainty ? (
-            <>
-              <p className="distance">
-                {distance.value}
-                <span className="unit">{distance.unit}</span>
-              </p>
-              <p className="hint">
-                {distance.unit === "km" ? `soit ${distance.meters} ` : ""}à vol d'oiseau, sur
-                l'ellipsoïde WGS84
-              </p>
-              <p className={`uncertainty${uncertainty.meters > 1 ? " is-wide" : ""}`}>
-                Incertitude ± {formatUncertainty(uncertainty.meters)}
-                {uncertainty.partial && " (plus une adresse approximative)"}
-              </p>
-            </>
-          ) : (
-            <p className="hint empty">
-              {!a
-                ? "Localisez-vous, ou placez A sur la carte, puis choisissez un point B."
-                : "Touchez la carte ou recherchez un lieu pour placer le point B."}
-            </p>
-          )}
+          <DistanceResult a={a} b={b} />
         </section>
 
-        <div className="target" role="radiogroup" aria-label="Le prochain toucher sur la carte place">
-          <span>Toucher la carte place</span>
-          {(["A", "B"] as const).map((t) => (
-            <button
-              key={t}
-              type="button"
-              role="radio"
-              aria-checked={target === t}
-              className={`target-${t.toLowerCase()}${target === t ? " is-active" : ""}`}
-              onClick={() => setTarget(t)}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
+        <TargetToggle value={target} onChange={setTarget} />
 
         <section className="point" aria-labelledby="label-a">
           <div className="point-head">

@@ -13,6 +13,7 @@ Gratuite, sans compte, sans clé API : la carte vient d'OpenStreetMap et la rech
 - **Point A** : géolocalisation affinée. L'application cumule les mesures pendant 30 s maximum, s'arrête dès ±3 m, et propose « Valider » pour arrêter plus tôt. On peut aussi placer A à la main sur la carte.
 - **Point B** : toucher la carte, rechercher une adresse, ou saisir des coordonnées décimales (`48.8584, 2.2945` ou `48,8584 ; 2,2945`).
 - **Mode Satellite** : photos aériennes IGN (20 cm par pixel en France), zoom jusqu'au niveau 21 pour placer les points finement. Le fond choisi est mémorisé.
+- **Carte en plein écran** : le bouton « Plein écran » masque le panneau et affiche sur la carte la distance, l'incertitude et le choix du point à placer. « Revenir à l'écran partagé » (ou la touche Échap) rétablit la vue précédente, mesure conservée. Sur Android et ordinateur, les barres du navigateur disparaissent aussi ; sur iPhone, Safari ne le permet pas : seule la carte s'agrandit.
 - Marqueurs déplaçables par glisser-déposer, interface responsive, thème sombre automatique, navigation au clavier.
 
 ## Précision : ce qu'il faut savoir
@@ -78,6 +79,8 @@ src/
 ├── App.tsx                  Écran principal (points A et B, distance)
 ├── components/
 │   ├── MapView.tsx          Carte Leaflet, marqueurs, tracé, recadrage
+│   ├── DistanceResult.tsx   Distance et incertitude (panneau et plein écran)
+│   ├── TargetToggle.tsx     Choix du point placé par un toucher sur la carte
 │   └── SearchBox.tsx        Recherche du point B (adresse ou coordonnées)
 ├── lib/
 │   ├── geodesic.ts          Distance géodésique WGS84, incertitude, finesse de placement

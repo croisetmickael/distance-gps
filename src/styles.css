@@ -436,3 +436,91 @@ h2 {
 .map-satellite.leaflet-container {
   background: #3a4248;
 }
+
+/* ===== Plein écran ===== */
+.app.is-fullscreen {
+  grid-template-rows: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.panel[hidden] {
+  display: none;
+}
+
+/* Les contrôles de carte restent hors des barres système du téléphone */
+.app.is-fullscreen .leaflet-top {
+  top: env(safe-area-inset-top, 0px);
+}
+
+.app.is-fullscreen .layer-switch {
+  top: calc(10px + env(safe-area-inset-top, 0px));
+}
+
+.fullscreen-toggle {
+  position: absolute;
+  top: 56px;
+  right: 10px;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 36px;
+  padding: 0.3rem 0.7rem;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #1c2b36;
+  background: #fff;
+  border: 0;
+  border-radius: 8px;
+  box-shadow: 0 1px 5px rgb(0 0 0 / 0.35);
+  cursor: pointer;
+}
+
+/* Résultat posé sur la carte */
+.map-overlay {
+  position: absolute;
+  z-index: 1000;
+  left: 10px;
+  right: 10px;
+  bottom: calc(26px + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem 1rem;
+  color: var(--ink);
+  background: var(--paper);
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgb(0 0 0 / 0.35);
+}
+
+@media (min-width: 860px) {
+  .map-overlay {
+    right: auto;
+    width: 340px;
+  }
+}
+
+.map-overlay .distance {
+  font-size: clamp(2.75rem, 12vw, 4rem);
+}
+
+.map-overlay .hint {
+  margin-top: 0.2rem;
+}
+
+.map-overlay .uncertainty {
+  margin-top: 0.25rem;
+}
+
+.btn-dark {
+  width: 100%;
+  min-height: 44px;
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+
+.btn-dark:hover:not(:disabled) {
+  border-color: var(--ink-soft);
+}
